@@ -66,6 +66,19 @@ body.hideko .line.peek .ko{filter:none}
 .wd .c{font-size:14px}
 .wd button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:8px;padding:4px 8px}
 .empty{color:var(--muted);text-align:center;padding:40px 10px;line-height:1.7}
+.t{display:flex;align-items:center;gap:6px}
+.askb{margin-left:auto;font:inherit;font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.line.on .askb{border-color:var(--accent);color:var(--accent)}
+#ask{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}
+#ask .sheet{width:100%;max-width:760px;margin:0 auto;background:var(--card);border-radius:18px 18px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);max-height:90%;overflow-y:auto}
+#ask .q-zh{font-family:var(--zh);font-size:22px;line-height:1.5}
+#ask .q-ko{color:var(--muted);font-size:14px;margin:2px 0 12px}
+#ask .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+#ask .chips button{font:inherit;font-size:13px;padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+#ask textarea{width:100%;min-height:84px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);resize:vertical}
+#ask .go{display:block;text-align:center;margin-top:10px;padding:13px;border-radius:12px;background:var(--accent);color:#fff;text-decoration:none;font-size:16px;font-weight:600}
+#ask .sub{display:flex;gap:8px;margin-top:8px}
+#ask .sub button{flex:1;font:inherit;font-size:14px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
 .toast{position:fixed;top:calc(env(safe-area-inset-top) + 60px);left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:14px;z-index:30}
 </style>
 </head>
@@ -141,12 +154,14 @@ async function openEp(i){
 function render(){
   $('#list').innerHTML = LINES.map((l,i)=>{
     const zh = l.w.map(([w,p],j)=> p ? `<span class="w" data-i="${i}" data-j="${j}"><ruby>${esc(w)}<rt>${esc(p)}</rt></ruby></span>` : `<span>${esc(w)}</span>`).join('');
-    return `<div class="line" id="L${i}" data-i="${i}"><div class="t">${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}</div><div class="zh">${zh}</div><div class="ko">${esc(l.ko)}</div>${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
+    return `<div class="line" id="L${i}" data-i="${i}"><div class="t">${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}<button class="askb" data-ask="${i}">🤖 Claude에게 묻기</button></div><div class="zh">${zh}</div><div class="ko">${esc(l.ko)}</div>${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
   }).join('');
 }
 
 /* ---------- 대사 / 단어 누르기 ---------- */
 $('#list').addEventListener('click', e=>{
+  const ab = e.target.closest('.askb');
+  if (ab){ e.stopPropagation(); openAsk(+ab.dataset.ask, ''); return }
   const w = e.target.closest('.w');
   if (w){ e.stopPropagation(); showWord(+w.dataset.i, +w.dataset.j, w); return }
   const ln = e.target.closest('.line'); if(!ln) return;
@@ -190,10 +205,11 @@ async function showWord(i,j,el){
   pop.innerHTML=`<div><span class="pw">${esc(w)}</span><span class="pp">${esc(p)}</span></div>
     <div class="pm">뜻 찾는 중…</div>
     <div class="row"><button class="save ${saved?'on':''}">${saved?'★ 저장됨':'☆ 단어장'}</button>
-    <a href="https://papago.naver.com/?sk=zh-CN&tk=ko&st=${encodeURIComponent(w)}" target="_blank" rel="noopener">파파고</a>
+    <button class="askw">🤖 Claude</button>
     <button class="close" style="margin-left:auto">닫기</button></div>`;
   const m = await mean(w); pop.querySelector('.pm').textContent = m || '(뜻을 못 불러왔어요. 파파고를 눌러 보세요)';
   pop.querySelector('.close').onclick=closePop;
+  pop.querySelector('.askw').onclick=()=>{ closePop(); openAsk(i, `'${w}'는 여기서 무슨 뜻이고, 왜 이 자리에 쓰였어?`) };
   pop.querySelector('.save').onclick=e=>{
     const k=words.findIndex(x=>x.w===w);
     if(k>=0){ words.splice(k,1); e.target.textContent='☆ 단어장'; e.target.classList.remove('on') }
@@ -202,6 +218,45 @@ async function showWord(i,j,el){
   };
 }
 function closePop(){ $('#pop').hidden=true; document.querySelectorAll('.w.sel').forEach(x=>x.classList.remove('sel')) }
+
+/* ---------- Claude에게 묻기 (claude.ai 새 대화로 질문을 넘김) ---------- */
+const zhOf = l => l.w.map(x=>x[0]).join('');
+const pyOf = l => l.w.filter(x=>x[1]).map(x=>x[1]).join(' ');
+let askI = 0;
+function askPrompt(q){
+  const l=LINES[askI], prev=LINES[askI-1], next=LINES[askI+1];
+  return `중국 드라마 《${EP.title}》 대사를 공부하고 있어. 나는 한국인이고 HSK 4급 정도야.
+
+문장: ${zhOf(l)}
+병음: ${pyOf(l)}
+한국어 자막: ${l.ko}
+${prev?`앞 대사: ${zhOf(prev)} (${prev.ko})\n`:''}${next?`뒤 대사: ${zhOf(next)} (${next.ko})\n`:''}
+질문: ${q || '이 문장을 자세히 설명해줘.'}
+
+30년차 중국어 선생님처럼 한국어로 쉽게 설명해줘. 단어 뜻, 문장 뼈대, 문법 포인트(헷갈리기 쉬운 쓰임과 비교), 비슷한 예문 2~3개를 넣어줘.`;
+}
+function openAsk(i, q){
+  askI=i; const l=LINES[i];
+  let box=$('#ask');
+  if(!box){ box=document.createElement('div'); box.id='ask'; document.body.appendChild(box);
+    box.addEventListener('click',e=>{ if(e.target===box) box.hidden=true }) }
+  box.hidden=false;
+  const chips=['이 문장 전체 설명해줘','문법 포인트만 알려줘','비슷한 예문 더 줘','실제로 이렇게 자주 말해?'];
+  box.innerHTML=`<div class="sheet">
+    <div class="q-zh">${esc(zhOf(l))}</div><div class="q-ko">${esc(l.ko)}</div>
+    <div class="chips">${chips.map(c=>`<button>${c}</button>`).join('')}</div>
+    <textarea id="askq" placeholder="궁금한 걸 적어 주세요. 예) 绑은 무슨 뜻이야? 过去는 '가본 적 있다' 아니야?">${esc(q)}</textarea>
+    <a class="go" target="_blank" rel="noopener">Claude에게 물어보기 →</a>
+    <div class="sub"><button class="copy">질문 복사</button><button class="cls">닫기</button></div>
+  </div>`;
+  const ta=box.querySelector('#askq'), go=box.querySelector('.go');
+  const upd=()=>{ go.href='https://claude.ai/new?q='+encodeURIComponent(askPrompt(ta.value.trim())) };
+  ta.oninput=upd; upd();
+  box.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{ ta.value=b.textContent; upd() });
+  box.querySelector('.cls').onclick=()=>box.hidden=true;
+  box.querySelector('.copy').onclick=()=>{ navigator.clipboard.writeText(askPrompt(ta.value.trim())).then(()=>toast('복사했어요. Claude 앱에 붙여넣으세요'),()=>{ ta.select(); toast('복사가 안 돼요. 직접 복사해 주세요') }) };
+  go.onclick=()=>{ setTimeout(()=>box.hidden=true,300) };
+}
 
 /* ---------- 단어장 ---------- */
 $('#tabWords').onclick=()=>{

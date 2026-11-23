@@ -88,7 +88,7 @@ body.hideko .line.peek .ko{filter:none}
   <header>
     <select id="ep" aria-label="에피소드"></select>
     <button class="tabbtn" id="tabWords">★ 단어장</button>
-    <span id="ver" style="font-size:10px;color:var(--muted)">v5</span>
+    <span id="ver" style="font-size:10px;color:var(--muted)">v6</span>
   </header>
   <div class="player"><div id="yt"></div></div>
   <div id="main" style="display:flex;flex-direction:column;flex:1;min-height:0">
@@ -333,7 +333,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='5';
+const VERSION='6';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();

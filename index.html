@@ -255,8 +255,18 @@ function openAsk(i, q){
   box.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{ ta.value=b.textContent; upd() });
   box.querySelector('.cls').onclick=()=>box.hidden=true;
   box.querySelector('.copy').onclick=()=>{ navigator.clipboard.writeText(askPrompt(ta.value.trim())).then(()=>toast('복사했어요. Claude 앱에 붙여넣으세요'),()=>{ ta.select(); toast('복사가 안 돼요. 직접 복사해 주세요') }) };
-  go.onclick=()=>{ setTimeout(()=>box.hidden=true,300) };
+  go.onclick=()=>{ ta.blur(); box.hidden=true };
 }
+/* Claude 앱에 갔다가 돌아오면: 묻기 창 닫고 화면 위치 바로잡기 (아이폰 홈화면 앱 터치 어긋남 방지) */
+function backFromAway(){
+  if(document.hidden) return;
+  const b=$('#ask'); if(b) b.hidden=true;
+  if(document.activeElement) document.activeElement.blur();
+  window.scrollTo(0,0);
+}
+document.addEventListener('visibilitychange', backFromAway);
+window.addEventListener('pageshow', backFromAway);
+window.addEventListener('focus', backFromAway);
 
 /* ---------- 단어장 ---------- */
 $('#tabWords').onclick=()=>{

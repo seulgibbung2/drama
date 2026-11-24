@@ -47,10 +47,13 @@ body.nopy .zh .c i{visibility:hidden}
 #pop .pm div{margin-bottom:4px}
 #pop .pm b{font-weight:600;font-size:12px;color:var(--muted);margin-right:4px}
 body.noen .en{display:none}
+.os{font-size:13px;color:var(--muted);margin-top:2px}
+.os b{font-weight:600;margin-right:4px}
+body.noos .os{display:none}
 body.hidezh .zh{filter:blur(7px)}
 body.hidezh .line.peek .zh{filter:none}
-body.hideko .ko{filter:blur(6px)}
-body.hideko .line.peek .ko{filter:none}
+body.hideko .ko,body.hideko .os{filter:blur(6px)}
+body.hideko .line.peek .ko,body.hideko .line.peek .os{filter:none}
 .bar{flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);background:var(--card);border-top:1px solid var(--line)}
 .bar button{font:inherit;font-size:13px;padding:9px 2px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);line-height:1.15}
 .bar button b{display:block;font-size:19px}
@@ -99,6 +102,7 @@ body.hideko .line.peek .ko{filter:none}
   <div id="main" style="display:flex;flex-direction:column;flex:1;min-height:0">
     <div class="opts" style="padding-top:8px">
       <button id="oPy" class="on">병음</button>
+      <button id="oOs">원래 자막</button>
       <button id="oEn">영어</button>
       <button id="oHideZh">중국어 가리기</button>
       <button id="oHideKo">한국어 가리기</button>
@@ -139,7 +143,7 @@ function opt(id, cls, key, invert){
   const apply=()=>{ b.classList.toggle('on',on); document.body.classList.toggle(cls, invert?!on:on) };
   b.onclick=()=>{ on=!on; store.set(key,on); apply() }; apply();
 }
-opt('#oPy','nopy','py',true); opt('#oEn','noen','en',true);
+opt('#oPy','nopy','py',true); opt('#oOs','noos','os',true); opt('#oEn','noen','en',true);
 opt('#oHideZh','hidezh','hzh',false); opt('#oHideKo','hideko','hko',false);
 
 /* ---------- 에피소드 ---------- */
@@ -170,7 +174,7 @@ function chars(w,p){
 function render(){
   $('#list').innerHTML = LINES.map((l,i)=>{
     const zh = l.w.map(([w,p],j)=> p ? `<span class="w" data-i="${i}" data-j="${j}">${chars(w,p)}</span>` : `<span>${esc(w)}</span>`).join('');
-    return `<div class="line" id="L${i}" data-i="${i}"><div class="t">${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}<button class="askb" data-ask="${i}">🤖 Claude에게 묻기</button></div><div class="zh">${zh}</div><div class="ko">${esc(l.ko)}</div>${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
+    return `<div class="line" id="L${i}" data-i="${i}"><div class="t">${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}<button class="askb" data-ask="${i}">🤖 Claude에게 묻기</button></div><div class="zh">${zh}</div><div class="ko">${esc(l.kt||l.ko)}</div>${l.kt&&l.ko?`<div class="os"><b>자막</b>${esc(l.ko)}</div>`:''}${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -225,7 +229,7 @@ function showWord(i,j,el){
   pop.querySelector('.save').onclick=e=>{
     const k=words.findIndex(x=>x.w===w);
     if(k>=0){ words.splice(k,1); e.target.textContent='☆ 단어장'; e.target.classList.remove('on') }
-    else { words.unshift({w,p,m,ko:LINES[i].ko,zh:LINES[i].w.map(x=>x[0]).join(''),ep:EP.id,s:LINES[i].s}); e.target.textContent='★ 저장됨'; e.target.classList.add('on'); toast('단어장에 저장했어요') }
+    else { words.unshift({w,p,m,ko:LINES[i].kt||LINES[i].ko,zh:LINES[i].w.map(x=>x[0]).join(''),ep:EP.id,s:LINES[i].s}); e.target.textContent='★ 저장됨'; e.target.classList.add('on'); toast('단어장에 저장했어요') }
     store.set('words',words);
   };
 }
@@ -241,8 +245,9 @@ function askPrompt(q){
 
 문장: ${zhOf(l)}
 병음: ${pyOf(l)}
-한국어 자막: ${l.ko}
-${prev?`앞 대사: ${zhOf(prev)} (${prev.ko})\n`:''}${next?`뒤 대사: ${zhOf(next)} (${next.ko})\n`:''}
+한국어 번역: ${l.kt||l.ko}${l.kt&&l.ko?`
+(드라마 자막: ${l.ko})`:''}
+${prev?`앞 대사: ${zhOf(prev)} (${prev.kt||prev.ko})\n`:''}${next?`뒤 대사: ${zhOf(next)} (${next.kt||next.ko})\n`:''}
 질문: ${q || '이 문장을 자세히 설명해줘.'}
 
 짧고 쉽게 한국어로 설명해줘. 어려운 문법 용어는 쓰지 말고, 다른 쓰임과 비교하지 마.
@@ -259,7 +264,7 @@ function openAsk(i, q){
   box.hidden=false;
   const chips=['이 문장 쉽게 설명해줘','이 단어 왜 여기 썼어?','비슷한 예문 하나 더','실제로 자주 쓰는 말이야?'];
   box.innerHTML=`<div class="sheet">
-    <div class="q-zh">${esc(zhOf(l))}</div><div class="q-ko">${esc(l.ko)}</div>
+    <div class="q-zh">${esc(zhOf(l))}</div><div class="q-ko">${esc(l.kt||l.ko)}</div>
     <div class="chips">${chips.map(c=>`<button>${c}</button>`).join('')}</div>
     <textarea id="askq" placeholder="궁금한 걸 적어 주세요. 예) 绑은 무슨 뜻이야? 过去는 '가본 적 있다' 아니야?">${esc(q)}</textarea>
     <a class="go" target="_blank" rel="noopener">Claude에게 물어보기 →</a>
@@ -347,7 +352,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='7';
+const VERSION='8';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();

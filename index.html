@@ -353,7 +353,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='9';
+const VERSION='10';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();

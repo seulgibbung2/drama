@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -329,8 +329,9 @@ $('#bPlay').onclick=()=>{
 function onYouTubeIframeAPIReady(){
   const go=()=>{ if(!EP) return setTimeout(go,100);
     player=new YT.Player('yt',{videoId:EP.id,
-      playerVars:{playsinline:1,rel:0,modestbranding:1,start:Math.floor(store.get('pos_'+EP.id,0))},
+      playerVars:{playsinline:1,rel:0,modestbranding:1,cc_load_policy:0,iv_load_policy:3,start:Math.floor(store.get('pos_'+EP.id,0))},
       events:{onReady:()=>{ready=true}, onStateChange:e=>{
+        if(e.data===1){ try{ player.unloadModule('captions'); player.unloadModule('cc') }catch(_){} } /* 유튜브 자막 겹침 끄기 */
         $('#bPlay').innerHTML = e.data===1 ? '<b>⏸</b>멈춤' : '<b>▶</b>재생';
       }}});
   }; go();
@@ -352,7 +353,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='8';
+const VERSION='9';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();

@@ -41,6 +41,7 @@ header select{flex:1;min-width:0;font:inherit;font-size:14px;padding:6px 8px;bor
 .w{border-radius:4px}
 .w:active,.w.sel{background:var(--accent-soft)}
 .ko{font-size:16px;line-height:1.5}
+.t .no{font-weight:700;color:var(--fg);margin-right:6px}
 .en{font-size:13px;color:var(--muted);margin-top:2px}
 body.nopy .zh .c i{visibility:hidden}
 #pop .pm{font-size:15px;line-height:1.5}
@@ -174,7 +175,7 @@ function chars(w,p){
 function render(){
   $('#list').innerHTML = LINES.map((l,i)=>{
     const zh = l.w.map(([w,p],j)=> p ? `<span class="w" data-i="${i}" data-j="${j}">${chars(w,p)}</span>` : `<span>${esc(w)}</span>`).join('');
-    return `<div class="line" id="L${i}" data-i="${i}"><div class="t">${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}<button class="askb" data-ask="${i}">🤖 Claude에게 묻기</button></div><div class="zh">${zh}</div><div class="ko">${esc(l.kt||l.ko)}</div>${l.kt&&l.ko?`<div class="os"><b>자막</b>${esc(l.ko)}</div>`:''}${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
+    return `<div class="line" id="L${i}" data-i="${i}"><div class="t"><b class="no">${i+1}</b>${fmt(l.s)}${l.g?' · <span style="color:var(--accent)">추정</span>':''}<button class="askb" data-ask="${i}">🤖 Claude에게 묻기</button></div><div class="zh">${zh}</div><div class="ko">${esc(l.kt||l.ko)}</div>${l.kt&&l.ko?`<div class="os"><b>자막</b>${esc(l.ko)}</div>`:''}${l.en?`<div class="en">${esc(l.en)}</div>`:''}</div>`;
   }).join('');
 }
 
@@ -353,7 +354,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='10';
+const VERSION='11';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();

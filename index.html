@@ -61,6 +61,7 @@ body.hideko .line.peek .ko,body.hideko .line.peek .os{filter:none}
 .bar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .opts{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 6px}
 .opts button{font:inherit;font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+#jump{width:62px;font:inherit;font-size:16px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .opts button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 #pop{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);max-width:560px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:20}
 #pop .pw{font-family:var(--zh);font-size:30px}
@@ -107,6 +108,7 @@ body.hideko .line.peek .ko,body.hideko .line.peek .os{filter:none}
       <button id="oEn">영어</button>
       <button id="oHideZh">중국어 가리기</button>
       <button id="oHideKo">한국어 가리기</button>
+      <form id="jumpf" style="display:flex;gap:4px;margin:0"><input id="jump" type="number" inputmode="numeric" min="1" placeholder="번호"><button>이동</button></form>
     </div>
     <div id="list"></div>
   </div>
@@ -190,6 +192,7 @@ $('#list').addEventListener('click', e=>{
   if (document.body.matches('.hidezh,.hideko') && !ln.classList.contains('peek') && i===cur){ ln.classList.add('peek'); return }
   playLine(i);
 });
+$('#jumpf').onsubmit=e=>{ e.preventDefault(); const n=parseInt($('#jump').value); $('#jump').blur(); if(!n||!LINES.length) return; const i=Math.min(Math.max(n,1),LINES.length)-1; if(ready) playLine(i); else mark(i); $('#jump').value='' };
 function playLine(i){
   if(!ready || i<0 || i>=LINES.length) return;
   closePop();
@@ -354,7 +357,7 @@ setInterval(()=>{
 },120);
 
 /* 새 버전 자동 확인: version.txt가 바뀌면 캐시 피해서 다시 열기 */
-const VERSION='11';
+const VERSION='12';
 async function checkUpdate(){
   try{
     const v=(await fetch('version.txt?'+Date.now(),{cache:'no-store'}).then(r=>r.text())).trim();
